@@ -20,6 +20,7 @@ import {
   plugin_fill,
   plugin_sticker,
   plugin_redact,
+  plugin_retouch,
 
   // The user interface and plugin locale objects
   locale_en_gb,
@@ -32,6 +33,7 @@ import {
   plugin_fill_locale_en_gb,
   plugin_sticker_locale_en_gb,
   plugin_redact_locale_en_gb,
+  plugin_retouch_locale_en_gb,
 
   // Because we use the annotate plugin we also need
   // to import the markup editor locale and the shape preprocessor
@@ -46,10 +48,31 @@ import {
   createDefaultColorOptions,
   colorStringToColorArray,
   processDefaultImage,
+  createNode,
+  createDefaultImageOrienter,
+  findNode,
+  appendNode,
+  createMarkupEditorToolStyles,
+  createMarkupEditorSelectionToolStyles,
+  createMarkupEditorShapeStyleControls,
+  createMarkupEditorSelectionTools,
+  getShapeById,
 } from "@pqina/pintura";
 
 // Import the editor component from `react-pintura`
-import { PinturaEditor } from "@pqina/react-pintura";
+import { PinturaEditor, PinturaComponentEvents } from "@pqina/react-pintura";
+
+// custom functions needed for custom retouch functionality
+import {
+  appendRetouchInpaintButtons,
+  appendRetouchFeatherSlider,
+  appendRetouchInpaintResultNavigation,
+  requestInpaintPrompt,
+  createInpaintShape,
+  attachInpaintAction,
+  attachCleanAction,
+} from "./retouch.js";
+import { useRef } from "react";
 
 // This registers the plugins with Pintura Image Editor
 setPlugins(
@@ -61,7 +84,8 @@ setPlugins(
   plugin_filter,
   plugin_fill,
   plugin_sticker,
-  plugin_redact
+  plugin_redact,
+  plugin_retouch
 );
 
 // Create our editor configuration
@@ -69,9 +93,15 @@ const editorConfig = {
   // This will read the image data (required)
   imageReader: createDefaultImageReader(),
 
+  // This is needed on older browsers to correctly orient JPEGs
+  imageOrienter: createDefaultImageOrienter(),
+
   // This will write the output image
-  //imageWriter: createDefaultImageWriter(),
-  imageWriter: {
+  imageWriter: createDefaultImageWriter(),
+
+  // This handles complex shapes like arrows / frames
+  shapePreprocessor: createDefaultShapePreprocessor(),
+  /* imageWriter: {
     // apply redaction to source image
 
     preprocessImageSource: async (src, options, onprogress, state) => {
@@ -86,7 +116,49 @@ const editorConfig = {
       imageState.redaction = [];
       return imageState;
     },
-  },
+  }, */
+
+  // add retouch tools
+  retouchToolShapes: createMarkupEditorToolStyles({
+    // add redact mode selection styles
+    ...createMarkupEditorSelectionToolStyles("redact"),
+
+    // add inpaint mode selection styles
+    ...createMarkupEditorSelectionToolStyles("inpaint"),
+
+    // add clean mode selection styles
+    ...createMarkupEditorSelectionToolStyles("clean", {
+      // which tools to enable
+      tools: ["brush"],
+    }),
+  }),
+
+  // add retouch tool groups (groups are optional)
+  retouchTools: [
+    // Redact group
+    ["Redact", createMarkupEditorSelectionTools("redact")],
+
+    // Inpaint group
+    [
+      "Inpaint",
+
+      // Enable all tools
+      createMarkupEditorSelectionTools("inpaint"),
+    ],
+
+    // Clean group
+    [
+      "Clean",
+
+      // only show brush tool
+      createMarkupEditorSelectionTools("clean", {
+        tools: ["brush"],
+      }),
+    ],
+  ],
+
+  // enable defaults tools for retouch panel
+  retouchShapeControls: createMarkupEditorShapeStyleControls(),
 
   // The markup editor default options, tools, shape style controls
   ...markup_editor_defaults,
@@ -99,9 +171,6 @@ const editorConfig = {
 
   //The frame controls
   ...plugin_frame_defaults,
-
-  // This handles complex shapes like arrows / frames
-  shapePreprocessor: createDefaultShapePreprocessor(),
 
   // This will set a square crop aspect ratio
   //imageCropAspectRatio: 1,
@@ -119,15 +188,98 @@ const editorConfig = {
     ...plugin_fill_locale_en_gb,
     ...plugin_sticker_locale_en_gb,
     ...plugin_redact_locale_en_gb,
+    ...plugin_retouch_locale_en_gb,
   },
 };
 
 function ImageEditor() {
+  const editorRef = useRef(null);
+  const willRenderShapeControls = (controls, selectedShapeId) => {
+    console.log("willRenderShapeControls", selectedShapeId);
+    console.log("controls:", controls);
+    const buttonGroup = findNode("beta", controls);
+    const shadowButton = createNode("Button", "shadow", {
+      hideLabel: true,
+      label: "Shadow",
+      icon: '<g stroke="currentColor" stroke-width=".125em"><path fill="currentColor" d=""M0 0h24v24H0z"/><path d="M12 21a9 9 0 1 1 0 -18a9 9 0 0 1 0 18z" /><path / d="M18 12a6 6 0 0 1 -6 6" /></g>',
+      onclick: () => console.log("shadow button clicked"),
+    });
+    // Manipulate or add controls here
+    appendNode(shadowButton, buttonGroup);
+    //controls[1][3].push(shadowButton);
+
+    return [...controls];
+  };
+
+  const retouchWillRenderShapeControls = (controls, activeShapeId) => {
+    // no controls to render
+    if (!activeShapeId) return controls;
+
+    // get active shape
+    const activeShape = getShapeById(
+      //@ts-ignore
+      editorRef.imageManipulation,
+      activeShapeId
+    );
+
+    // Add inpaint buttons
+    appendRetouchInpaintButtons(controls, {
+      editorRef,
+      activeShape,
+      // Update prompt
+      onupdate: ({ shapePrompt }) =>
+        requestInpaintPrompt(editorRef, {
+          text: shapePrompt,
+          onconfirm: (text) => {
+            createInpaintShape(
+              editorRef,
+              //@ts-ignore
+              createRetouchShape,
+              text,
+              //@ts-ignore
+              activeShape.inpaint.selection,
+              activeShape
+            );
+          },
+          onclose: () => {
+            // clear selection
+            //@ts-ignore
+            editorRef.imageSelection = [];
+          },
+          onerror: (err) => {
+            // handle error
+          },
+        }),
+      // Generate more results
+      ongenerate: ({ shapePrompt, shapeSelection }) => {
+        // clear any selection made
+        //@ts-ignore
+        editorRef.imageSelection = [];
+
+        // paint new results based on current data
+        createInpaintShape(
+          //@ts-ignore
+          editor,
+          //@ts-ignore
+          createRetouchShape,
+          shapePrompt,
+          shapeSelection,
+          activeShape
+        );
+      },
+    });
+  };
+
   return (
     <div className="App" style={{ height: "600px" }}>
+      {/* @ts-ignore */}
       <PinturaEditor
+        ref={editorRef}
         {...editorConfig}
+        willRenderShapeControls={willRenderShapeControls}
         src="image.jpeg"
+        /* @ts-ignore */
+        retouchWillRenderShapeControls={retouchWillRenderShapeControls}
         stickers={[
           [
             // group label
@@ -163,6 +315,25 @@ function ImageEditor() {
 
           // Using a PNG as background image
           /* "mesh-gradient-01.png", */
+        ]}
+        cropSelectPresetOptions={[
+          [
+            "Crop",
+            [
+              [undefined, "Custom"],
+              [1, "Square"],
+              [4 / 3, "Landscape"],
+              [3 / 4, "Portrait"],
+            ],
+          ],
+          [
+            "Daktilo Components",
+            [
+              [[180, 180], "Profile Picture"],
+              [[1200, 600], "SliderThumbnail Image"],
+              [[800, 400], "Timeline Photo"],
+            ],
+          ],
         ]}
       ></PinturaEditor>
     </div>

@@ -37,6 +37,8 @@ import {
   markup_editor_locale_en_gb,
   plugin_sticker,
   plugin_sticker_locale_en_gb,
+  plugin_redact,
+  plugin_redact_locale_en_gb,
 } from "@pqina/pintura";
 
 setPlugins(
@@ -44,12 +46,27 @@ setPlugins(
   plugin_finetune,
   plugin_filter,
   plugin_annotate,
-  plugin_sticker
+  plugin_sticker,
+  plugin_redact
 );
 
 const editorDefaults = {
   imageReader: createDefaultImageReader(),
-  imageWriter: createDefaultImageWriter(),
+  imageWriter: {
+    // apply redaction to source image
+    preprocessImageSource: async (src, options, onprogress, state) => {
+      const { dest } = await processDefaultImage(src, {
+        imageRedaction: [...state.redaction],
+      });
+      return dest;
+    },
+
+    // remove redaction from state
+    preprocessImageState: (imageState) => {
+      imageState.redaction = [];
+      return imageState;
+    },
+  },
   shapePreprocessor: createDefaultShapePreprocessor(),
   ...plugin_finetune_defaults,
   ...plugin_filter_defaults,
@@ -65,6 +82,7 @@ const editorDefaults = {
     ...markup_editor_locale_en_gb,
     ...plugin_sticker_locale_en_gb,
     ...plugin_filter_locale_en_gb,
+    ...plugin_redact_locale_en_gb,
   },
 };
 
