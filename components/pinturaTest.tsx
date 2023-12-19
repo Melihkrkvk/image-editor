@@ -57,6 +57,8 @@ import {
   createMarkupEditorShapeStyleControls,
   createMarkupEditorSelectionTools,
   getShapeById,
+  updateShapeById,
+  createRetouchShape,
 } from "@pqina/pintura";
 
 // Import the editor component from `react-pintura`
@@ -68,9 +70,9 @@ import {
   appendRetouchFeatherSlider,
   appendRetouchInpaintResultNavigation,
   requestInpaintPrompt,
+  attachCleanAction,
   createInpaintShape,
   attachInpaintAction,
-  attachCleanAction,
 } from "./retouch.js";
 import { useRef } from "react";
 
@@ -189,6 +191,7 @@ const editorConfig = {
     ...plugin_sticker_locale_en_gb,
     ...plugin_redact_locale_en_gb,
     ...plugin_retouch_locale_en_gb,
+    retouchLabel: "Magic",
   },
 };
 
@@ -201,7 +204,7 @@ function ImageEditor() {
     const shadowButton = createNode("Button", "shadow", {
       hideLabel: true,
       label: "Shadow",
-      icon: '<g stroke="currentColor" stroke-width=".125em"><path fill="currentColor" d=""M0 0h24v24H0z"/><path d="M12 21a9 9 0 1 1 0 -18a9 9 0 0 1 0 18z" /><path / d="M18 12a6 6 0 0 1 -6 6" /></g>',
+      icon: '<g stroke="currentColor" stroke-width=".125em"><path fill="currentColor" d="M0 0h24v24H0z"/><path d="M12 21a9 9 0 1 1 0 -18a9 9 0 0 1 0 18z" /><path / d="M18 12a6 6 0 0 1 -6 6" /></g>',
       onclick: () => console.log("shadow button clicked"),
     });
     // Manipulate or add controls here
@@ -268,6 +271,53 @@ function ImageEditor() {
         );
       },
     });
+    // Add the feather control
+    appendRetouchFeatherSlider(controls, {
+      // set current value
+      value: activeShape.feather,
+
+      // receive updated value and update the shape
+      onchange: ({ value }) => {
+        //@ts-ignore
+        editor.imageManipulation = updateShapeById(
+          // shape list
+          //@ts-ignore
+          editor.imageManipulation,
+
+          // shape to update
+          activeShapeId,
+
+          // updater function
+          (shape) => ({
+            ...shape,
+            feather: value,
+          })
+        );
+      },
+    });
+    // add results nav
+    appendRetouchInpaintResultNavigation(controls, {
+      activeShape,
+      onupdate: ({ shapeBackgroundImage }) => {
+        //@ts-ignore
+        editor.imageManipulation = updateShapeById(
+          // shape list
+          //@ts-ignore
+          editor.imageManipulation,
+
+          // shape to update
+          activeShapeId,
+
+          // updater function
+          (shape) => ({
+            ...shape,
+            backgroundImage: shapeBackgroundImage,
+          })
+        );
+      },
+    });
+    // done adding controls
+    return controls;
   };
 
   return (
@@ -277,9 +327,15 @@ function ImageEditor() {
         ref={editorRef}
         {...editorConfig}
         willRenderShapeControls={willRenderShapeControls}
+        onSelectcontrol={(e) => {
+          attachInpaintAction(editorRef.current.editor, createRetouchShape);
+          attachCleanAction(editorRef.current.editor, createRetouchShape);
+        }}
         src="image.jpeg"
         /* @ts-ignore */
         retouchWillRenderShapeControls={retouchWillRenderShapeControls}
+        // set up
+
         stickers={[
           [
             // group label

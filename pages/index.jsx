@@ -203,6 +203,26 @@ export default function Home() {
       {modalVisible && (
         <PinturaEditorModal
           {...editorDefaults}
+          willRenderToolbar={willRenderToolbar}
+          cropSelectPresetOptions={[
+            [
+              "Crop",
+              [
+                [undefined, "Custom"],
+                [1, "Square"],
+                [4 / 3, "Landscape"],
+                [3 / 4, "Portrait"],
+              ],
+            ],
+            [
+              "Daktilo Components",
+              [
+                [[180, 180], "Profile Picture"],
+                [[1200, 600], "SliderThumbnail Image"],
+                [[800, 400], "Timeline Photo"],
+              ],
+            ],
+          ]}
           stickers={[
             [
               // group label
