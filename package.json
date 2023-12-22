@@ -14,7 +14,7 @@
   "dependencies": {
     "@pqina/filepond-plugin-image-editor": "8.x",
     "@pqina/pintura": "^8.68.0",
-    "@pqina/react-pintura": "^9.x",
+    "@pqina/react-pintura": "^9.0.3",
     "form-data": "^4.0.0",
     "multer": "^1.4.5-lts.1",
     "next": "^13",
