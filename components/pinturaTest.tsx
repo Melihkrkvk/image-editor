@@ -321,7 +321,7 @@ function ImageEditor() {
 
   //redact feature inside of magic
 
-  /*  const editorDefaults = getEditorDefaults({
+  const editorDefaults = getEditorDefaults({
     imageWriter: {
       // apply redaction to source image
       preprocessImageSource: async (src, options, onprogress, state) => {
@@ -337,7 +337,7 @@ function ImageEditor() {
         return imageState;
       },
     },
-  }); */
+  });
 
   let imageScalar;
   let imageScaled;
@@ -366,12 +366,11 @@ function ImageEditor() {
     );
 
     // Show mask canvas, for debugging purposes
-    {
-      document.getElementById("maskCanvas")?.remove();
-      maskCanvas.id = "maskCanvas";
-      maskCanvas.style.cssText = `margin:10px;border:1px solid silver;background-color:#ccc;background-image:url("data:image/svg+xml,%3Csvg width='8' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23E5E5E5'%3E%3Cpath d='M0 0h4v4H0zM4 4h4v4H4z'/%3E%3C/g%3E%3C/svg%3E");height:20vh;`;
-      document.body.append(maskCanvas);
-    }
+
+    document.getElementById("maskCanvas")?.remove();
+    maskCanvas.id = "maskCanvas";
+    maskCanvas.style.cssText = `margin:10px;border:1px solid silver;background-color:#ccc;background-image:url("data:image/svg+xml,%3Csvg width='8' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23E5E5E5'%3E%3Cpath d='M0 0h4v4H0zM4 4h4v4H4z'/%3E%3C/g%3E%3C/svg%3E");height:20vh;`;
+    document.body.append(maskCanvas);
 
     // Scrambled scaled image data
     const { dest: scrambledCanvas } = await processDefaultImage(imageScaled, {
@@ -432,15 +431,14 @@ function ImageEditor() {
     });
 
     // Show mask canvas, for debugging purposes
-    {
-      document.getElementById("scrambledCanvas")?.remove();
-      //@ts-ignore
-      scrambledCanvas.id = "scrambledCanvas";
-      //@ts-ignore
-      scrambledCanvas.style.cssText = `margin:10px;border:1px solid silver;height:20vh;`;
-      //@ts-ignore
-      document.body.append(scrambledCanvas);
-    }
+
+    document.getElementById("scrambledCanvas")?.remove();
+    //@ts-ignore
+    scrambledCanvas.id = "scrambledCanvas";
+    //@ts-ignore
+    scrambledCanvas.style.cssText = `margin:10px;border:1px solid silver;height:20vh;`;
+    //@ts-ignore
+    document.body.append(scrambledCanvas);
 
     // Redacted canvas
     const backgroundImage = document.createElement("canvas");
@@ -511,6 +509,7 @@ function ImageEditor() {
       {/* @ts-ignore */}
       <PinturaEditor
         ref={editorRef}
+        {...editorDefaults}
         {...editorConfig}
         willRenderShapeControls={willRenderShapeControls}
         onSelectcontrol={(e) => {
@@ -528,7 +527,9 @@ function ImageEditor() {
           // clear image selection
           editorRef.current.editor.imageSelection = [];
         }}
-        onLoad={async (size: any) => {
+        onLoad={async ({ size }: any) => {
+          console.log("onload:", size);
+
           const MAX_IMAGE_SIZE = 512;
 
           // scale down image file for scrambling purposes

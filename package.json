@@ -15,6 +15,7 @@
     "@pqina/filepond-plugin-image-editor": "8.x",
     "@pqina/pintura": "^8.68.0",
     "@pqina/react-pintura": "^9.0.3",
+    "@tensorflow-models/deeplab": "^0.2.2",
     "form-data": "^4.0.0",
     "multer": "^1.4.5-lts.1",
     "next": "^13",
