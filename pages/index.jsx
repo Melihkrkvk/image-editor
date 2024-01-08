@@ -3,6 +3,9 @@ import { useRef, useState } from "react";
 
 import { pintura } from "@pqina/pintura/pintura.module.css";
 
+//our remove bg service
+import useRemoveImageBackground from "../components/removebgService";
+
 // react-pintura
 import {
   PinturaEditor,
@@ -87,6 +90,9 @@ const editorDefaults = {
 };
 
 export default function Home() {
+  //remove bg
+  const { autoRemoveBackground } = useRemoveImageBackground();
+
   const editorRef = useRef(null);
   // inline
   const [inlineResult, setInlineResult] = useState("");
@@ -102,6 +108,13 @@ export default function Home() {
     imageState: undefined,
   });
 
+  const handleButtonClick = () => {
+    editorRef.current.editor.processImage().then((imageWriterResult) => {
+      // Logs resulting image
+      console.log(imageWriterResult);
+    });
+  };
+
   const willRenderToolbar = (toolbar) => {
     const buttonGroup = findNode("alpha-set", toolbar);
 
@@ -112,30 +125,38 @@ export default function Home() {
         label: "Custom Remove Bg",
         onclick: async () => {
           // disable input
-          editorRef.current.editor.disabled = true;
+          //editorRef.current.editor.disabled = true;
 
           // now loading
           editorRef.current.editor.status = "Uploading data…";
 
           // post image to background removal service
-          const formData = new FormData();
+          /*   const formData = new FormData();
           formData.append(
             "image",
             editorRef.current.editor.imageFile,
             editorRef.current.editor.imageFile.name
-          );
-
+          ); */
+          const originalImage = new Image();
+          originalImage.onload = () => {
+            console.log("bgButton onLoad");
+            originalImage.width = editorRef.current.editor.imageSize.width;
+            originalImage.height = editorRef.current.editor.imageSize.height;
+            const newImage = autoRemoveBackground(originalImage).then(
+              (base64) => base64.blob()
+            );
+          };
           // request removal of background
-          const newImage = fetch("remove-the-background", {
+          /* const newImage = fetch("remove-the-background", {
             method: "POST",
             body: formData,
-          }).then((res) => res.blob());
+          }).then((res) => res.blob()); */
 
           // done loading
           editorRef.current.editor.status = undefined;
 
           // update the image with the newly received transparent image
-          editorRef.current.editor.updateImage(newImage);
+          // editorRef.current.editor.updateImage(newImage);
         },
       }
     );
@@ -158,7 +179,7 @@ export default function Home() {
           ref={editorRef}
           {...editorDefaults}
           className={pintura}
-          src={"./image.jpeg"}
+          src={"./test.jpg"}
           willRenderToolbar={willRenderToolbar}
           stickers={[
             [
@@ -200,56 +221,59 @@ export default function Home() {
       <p>
         <button onClick={() => setModalVisible(true)}>Open editor</button>
       </p>
+
       {modalVisible && (
-        <PinturaEditorModal
-          {...editorDefaults}
-          willRenderToolbar={willRenderToolbar}
-          cropSelectPresetOptions={[
-            [
-              "Crop",
+        <>
+          <PinturaEditorModal
+            {...editorDefaults}
+            willRenderToolbar={willRenderToolbar}
+            cropSelectPresetOptions={[
               [
-                [undefined, "Custom"],
-                [1, "Square"],
-                [4 / 3, "Landscape"],
-                [3 / 4, "Portrait"],
+                "Crop",
+                [
+                  [undefined, "Custom"],
+                  [1, "Square"],
+                  [4 / 3, "Landscape"],
+                  [3 / 4, "Portrait"],
+                ],
               ],
-            ],
-            [
-              "Daktilo Components",
               [
-                [[180, 180], "Profile Picture"],
-                [[1200, 600], "SliderThumbnail Image"],
-                [[800, 400], "Timeline Photo"],
+                "Daktilo Components",
+                [
+                  [[180, 180], "Profile Picture"],
+                  [[1200, 600], "SliderThumbnail Image"],
+                  [[800, 400], "Timeline Photo"],
+                ],
               ],
-            ],
-          ]}
-          stickers={[
-            [
-              // group label
-              "Emoji",
+            ]}
+            stickers={[
+              [
+                // group label
+                "Emoji",
 
-              // group stickers
-              ["🎉", "😄", "👍", "👎", "🍕"],
+                // group stickers
+                ["🎉", "😄", "👍", "👎", "🍕"],
 
-              // group properties
-              {
-                // a group icon
-                icon: "<g><!-- SVG here --></g>",
+                // group properties
+                {
+                  // a group icon
+                  icon: "<g><!-- SVG here --></g>",
 
-                // hide the group label
-                hideLabel: true,
+                  // hide the group label
+                  hideLabel: true,
 
-                // disable the group
-                disabled: true,
-              },
-            ],
-          ]}
-          className={pintura}
-          src={"./image.jpeg"}
-          onLoad={(res) => console.log("load modal image", res)}
-          onHide={() => setModalVisible(false)}
-          onProcess={({ dest }) => setModalResult(URL.createObjectURL(dest))}
-        />
+                  // disable the group
+                  disabled: true,
+                },
+              ],
+            ]}
+            className={pintura}
+            src={"./image.jpeg"}
+            onLoad={(res) => console.log("load modal image", res)}
+            onHide={() => setModalVisible(false)}
+            onProcess={({ dest }) => setModalResult(URL.createObjectURL(dest))}
+          />
+        </>
       )}
       {!!modalResult.length && (
         <p>

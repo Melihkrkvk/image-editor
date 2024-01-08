@@ -79,6 +79,7 @@ import {
   attachInpaintAction,
 } from "./retouch.js";
 import { useRef } from "react";
+import smartcrop from "smartcrop";
 
 // This registers the plugins with Pintura Image Editor
 setPlugins(
@@ -527,7 +528,7 @@ function ImageEditor() {
           // clear image selection
           editorRef.current.editor.imageSelection = [];
         }}
-        onLoad={async ({ size }: any) => {
+        /* onLoad={async ({ size }: any) => {
           console.log("onload:", size);
 
           const MAX_IMAGE_SIZE = 512;
@@ -545,8 +546,21 @@ function ImageEditor() {
           );
           imageScalar = Math.min(1, MAX_IMAGE_SIZE / size.width);
           imageScaled = dest;
+        }} */
+        onLoad={(imageState: any) => {
+          console.log("onLoad:", imageState.dest);
+
+          const image = new Image();
+          image.src = URL.createObjectURL(imageState.dest);
+          image.onload = async () => {
+            const { topCrop } = await smartcrop.crop(image, {
+              width: 3,
+              height: 4,
+            });
+            editorRef.current.editor.imageCrop = topCrop;
+          };
         }}
-        src="image.jpeg"
+        src="test.jpg"
         onProcess={(res: any) => {
           console.log("Result", res);
           document
